@@ -28,15 +28,20 @@
   .err { display:none; color:var(--danger); font-size:12px; margin-top:10px; }
   .err.on { display:block; }
   .btn { width:100%; padding:14px; border:none; border-radius:8px; background:var(--accent); color:#1a1410; font-weight:700; font-size:14px; cursor:pointer; }
+  .btn:disabled { opacity:.7; cursor:wait; }
   .btn-outline { background:transparent; border:1px solid var(--accent); color:var(--accent); margin-top:12px; }
+  .spinner { display:inline-block; width:16px; height:16px; border:2px solid rgba(26,20,16,.3); border-top-color:#1a1410; border-radius:50%; animation:spin .8s linear infinite; vertical-align:middle; margin-right:8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
   .hidden { display:none; }
-  .done { text-align:center; padding:50px 20px; }
-  .done h2 { font-size:22px; margin-bottom:10px; }
-  .done p { color:var(--muted); font-size:14px; line-height:1.6; }
+  .center { text-align:center; padding:50px 20px; }
+  .center h2 { font-size:22px; margin-bottom:10px; }
+  .center p { color:var(--muted); font-size:14px; line-height:1.6; }
 </style>
 </head>
 <body>
 <div class="wrap">
+
+  <!-- 1. FORM NILAI ORANG -->
   <div id="formView">
     <h1>Staff Feedback Review</h1>
     <p class="sub">Nilai rekan kerja kamu dengan jujur. Jawabanmu tidak menyimpan nama atau posisi kamu.</p>
@@ -71,21 +76,64 @@
       </div>
 
       <div class="err" id="err">Mohon lengkapi semua skor, dan isi kedua kolom feedback (masing-masing minimal 40 karakter).</div>
-      <button class="btn" onclick="submitForm()">Kirim Review ✓</button>
+      <button class="btn" id="submitBtn" onclick="submitForm()">Kirim Review ✓</button>
     </div>
   </div>
 
-  <div id="doneView" class="done hidden">
+  <!-- 2. SETELAH KIRIM SATU ORANG -->
+  <div id="doneView" class="center hidden">
     <h2>Terima kasih sudah jujur.</h2>
     <p>Feedback kamu sudah kami terima secara anonim.</p>
     <button class="btn btn-outline" onclick="resetForm()">Nilai orang lain</button>
+    <button class="btn" style="margin-top:12px" onclick="showCompany()">Sudah selesai, lanjut ke feedback perusahaan</button>
   </div>
+
+  <!-- 3. FEEDBACK UNTUK PERUSAHAAN -->
+  <div id="companyView" class="hidden">
+    <h1>Feedback untuk Perusahaan</h1>
+    <p class="sub">Bagian terakhir. Jawab sejujur-jujurnya, anonim.</p>
+    <div class="badge">🔒 Sepenuhnya Anonim</div>
+
+    <div class="card">
+      <div class="encourage">
+        Ini kesempatanmu menyampaikan hal yang sulit disampaikan langsung. Tulis yang sebenarnya kamu rasakan. Tidak ada jawaban yang salah, dan tidak ada yang akan tahu siapa yang menulis.
+      </div>
+
+      <div class="q-block">
+        <label class="q">1. Benefit gimana? <span class="req">*</span></label>
+        <textarea id="cBenefit" placeholder="Gaji, fasilitas, jadwal, makan, dan benefit lainnya. Minimal 20 karakter."></textarea>
+      </div>
+
+      <div class="q-block">
+        <label class="q">2. Jenjang karir gimana? <span class="req">*</span></label>
+        <textarea id="cJenjang" placeholder="Apakah ada kejelasan naik jabatan, kriteria, dan kesempatan berkembang? Minimal 20 karakter."></textarea>
+      </div>
+
+      <div class="q-block">
+        <label class="q">3. Feedback general buat perusahaan apa? <span class="req">*</span></label>
+        <textarea id="cUmum" placeholder="Apa yang perlu diubah atau dipertahankan di Reload Sanctuary? Minimal 20 karakter."></textarea>
+      </div>
+    </div>
+
+    <div class="err" id="cErr">Mohon isi ketiga pertanyaan, masing-masing minimal 20 karakter.</div>
+    <button class="btn" id="companyBtn" onclick="submitCompany()">Kirim Feedback Perusahaan ✓</button>
+    <button class="btn btn-outline" onclick="showOnly('doneView')">Kembali</button>
+  </div>
+
+  <!-- 4. SELESAI -->
+  <div id="finalView" class="center hidden">
+    <h2>Terima kasih.</h2>
+    <p id="finalText">Semua feedback kamu sudah kami terima secara anonim.</p>
+  </div>
+
 </div>
 
 <script>
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNVaD_e2oO4vdWGSK6iVZ7RHjn0Jhnvex6mu2A5aouu5APPYTXOrV4QKqeitJi56T4Qw/exec';
   const DONE_KEY = 'staffReview_done_v1';
+  const COMPANY_KEY = 'staffReview_company_v1';
   const MIN_TEXT = 40;
+  const COMPANY_MIN = 20;
 
   // Harus sama persis dengan isi tab "Daftar" di Sheet
   const LEADERS = [
@@ -224,7 +272,7 @@
   const leaderSet = new Set(LEADERS);
   const picked = {};
 
-  // ───── Penanda "sudah dinilai" di browser ─────
+  // ───── Penanda di browser ─────
   function getDone() {
     try { return JSON.parse(localStorage.getItem(DONE_KEY) || '[]'); }
     catch (e) { return []; }
@@ -235,6 +283,36 @@
     if (!d.includes(name)) d.push(name);
     try { localStorage.setItem(DONE_KEY, JSON.stringify(d)); }
     catch (e) { /* penyimpanan diblokir, lewati */ }
+  }
+
+  function companyDone() {
+    try { return localStorage.getItem(COMPANY_KEY) === '1'; }
+    catch (e) { return false; }
+  }
+
+  function markCompanyDone() {
+    try { localStorage.setItem(COMPANY_KEY, '1'); }
+    catch (e) { /* penyimpanan diblokir, lewati */ }
+  }
+
+  // ───── Loading pada tombol ─────
+  function setLoading(btn, on) {
+    if (on) {
+      btn.dataset.label = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner"></span>Mengirim...';
+      btn.disabled = true;
+    } else {
+      btn.innerHTML = btn.dataset.label || btn.innerHTML;
+      btn.disabled = false;
+    }
+  }
+
+  // ───── Navigasi antar tampilan ─────
+  function showOnly(id) {
+    ['formView', 'doneView', 'companyView', 'finalView'].forEach(v =>
+      document.getElementById(v).classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function tierOf(name) {
@@ -297,10 +375,19 @@
     clearInputs();
     document.getElementById('target').value = '';
     document.getElementById('questions').classList.add('hidden');
-    document.getElementById('doneView').classList.add('hidden');
-    document.getElementById('formView').classList.remove('hidden');
     populateSelect();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showOnly('formView');
+  }
+
+  function showCompany() {
+    if (companyDone()) {
+      document.getElementById('finalText').textContent =
+        'Kamu sudah mengisi feedback perusahaan dari HP ini. Terima kasih.';
+      showOnly('finalView');
+      return;
+    }
+    document.getElementById('cErr').classList.remove('on');
+    showOnly('companyView');
   }
 
   document.getElementById('target').addEventListener('change', e => {
@@ -309,6 +396,7 @@
     else document.getElementById('questions').classList.add('hidden');
   });
 
+  // ───── Kirim nilai orang ─────
   async function submitForm() {
     const target = document.getElementById('target').value;
     const type = document.getElementById('qCard').dataset.type;
@@ -335,6 +423,10 @@
       return;
     }
 
+    err.classList.remove('on');
+    const btn = document.getElementById('submitBtn');
+    setLoading(btn, true);
+
     const payload = { target, type, scores, bagus, jelek };
 
     try {
@@ -347,13 +439,49 @@
       });
     } catch (e) {
       console.warn('Kirim gagal:', e);
+    } finally {
+      setLoading(btn, false);
     }
 
     markDone(target);
+    showOnly('doneView');
+  }
 
-    document.getElementById('formView').classList.add('hidden');
-    document.getElementById('doneView').classList.remove('hidden');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  // ───── Kirim feedback perusahaan ─────
+  async function submitCompany() {
+    const benefit = document.getElementById('cBenefit').value.trim();
+    const jenjang = document.getElementById('cJenjang').value.trim();
+    const umum = document.getElementById('cUmum').value.trim();
+    const cErr = document.getElementById('cErr');
+
+    if (benefit.length < COMPANY_MIN || jenjang.length < COMPANY_MIN || umum.length < COMPANY_MIN) {
+      cErr.classList.add('on');
+      return;
+    }
+
+    cErr.classList.remove('on');
+    const btn = document.getElementById('companyBtn');
+    setLoading(btn, true);
+
+    const payload = { kind: 'company', benefit, jenjang, umum };
+
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.warn('Kirim gagal:', e);
+    } finally {
+      setLoading(btn, false);
+    }
+
+    markCompanyDone();
+    document.getElementById('finalText').textContent =
+      'Semua feedback kamu sudah kami terima secara anonim. Terima kasih sudah jujur.';
+    showOnly('finalView');
   }
 
   populateSelect();
