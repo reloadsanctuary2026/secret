@@ -251,6 +251,7 @@
   document.getElementById('target').addEventListener('change', e => {
     Object.keys(picked).forEach(k => delete picked[k]);
     document.getElementById('err').classList.remove('on');
+    document.getElementById('feedback').value = '';
     if (e.target.value) renderQuestions(e.target.value);
     else document.getElementById('questions').classList.add('hidden');
   });
