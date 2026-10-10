@@ -51,16 +51,12 @@
       <div class="card" id="qCard"></div>
       <div class="card">
         <div class="q-block">
-          <label class="q">Yang paling membantu dari orang ini <span style="color:var(--muted)">(opsional)</span></label>
-          <textarea id="positif" placeholder="Tulis di sini..."></textarea>
-        </div>
-        <div class="q-block">
-          <label class="q">Satu hal yang bisa diperbaiki <span style="color:var(--muted)">(opsional)</span></label>
-          <textarea id="perbaiki" placeholder="Tulis di sini..."></textarea>
-          <div class="hint">Jangan tulis nama orang lain atau kejadian yang spesifik, supaya tetap anonim.</div>
+          <label class="q">Apa feedback kamu tentang orang ini? <span class="req">*</span></label>
+          <textarea id="feedback" style="min-height:140px" placeholder="Tolong tulis banyak dan jelas, minimal 40 karakter. Sebutkan apa yang sudah bagus dan apa yang perlu diperbaiki."></textarea>
+          <div class="hint">Minimal 40 karakter. Jangan tulis nama orang lain atau kejadian yang spesifik, supaya tetap anonim.</div>
         </div>
       </div>
-      <div class="err" id="err">Mohon isi semua pertanyaan sebelum mengirim.</div>
+      <div class="err" id="err">Mohon lengkapi semua skor dan feedback (minimal 40 karakter).</div>
       <button class="btn" onclick="submitForm()">Kirim Review ✓</button>
     </div>
   </div>
@@ -185,7 +181,10 @@
     'I Made Aditya Wira Palguna',
     'I Kadek Ramananda Prasatya',
     'I Made Rai Rigantara',
-    'I Gede Made Arsadana'
+    'I Gede Made Arsadana',
+    'Windiana Indra Nugraha',
+    'Roberto Frinsen',
+    'Indra'
   ];
 
   const QUESTIONS = {
@@ -273,13 +272,13 @@
       scores.push(picked[i]);
     }
 
-    const payload = {
-      target,
-      type,
-      scores,
-      positif: document.getElementById('positif').value.trim(),
-      perbaiki: document.getElementById('perbaiki').value.trim()
-    };
+    const feedback = document.getElementById('feedback').value.trim();
+    if (feedback.length < 40) {
+      document.getElementById('err').classList.add('on');
+      return;
+    }
+
+    const payload = { target, type, scores, feedback };
 
     try {
       // text/plain menghindari preflight CORS; Apps Script tetap bisa membaca body-nya
