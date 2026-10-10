@@ -27,6 +27,7 @@
   .err { display:none; color:var(--danger); font-size:12px; margin-top:10px; }
   .err.on { display:block; }
   .btn { width:100%; padding:14px; border:none; border-radius:8px; background:var(--accent); color:#1a1410; font-weight:700; font-size:14px; cursor:pointer; }
+  .btn-outline { background:transparent; border:1px solid var(--accent); color:var(--accent); margin-top:12px; }
   .hidden { display:none; }
   .done { text-align:center; padding:50px 20px; }
   .done h2 { font-size:22px; margin-bottom:10px; }
@@ -45,6 +46,7 @@
       <select id="target">
         <option value="">— Pilih nama —</option>
       </select>
+      <div class="hint">Nama yang sudah kamu nilai dari HP ini tidak bisa dipilih lagi.</div>
     </div>
 
     <div id="questions" class="hidden">
@@ -64,11 +66,13 @@
   <div id="doneView" class="done hidden">
     <h2>Terima kasih sudah jujur.</h2>
     <p>Feedback kamu sudah kami terima secara anonim.</p>
+    <button class="btn btn-outline" onclick="resetForm()">Nilai orang lain</button>
   </div>
 </div>
 
 <script>
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNVaD_e2oO4vdWGSK6iVZ7RHjn0Jhnvex6mu2A5aouu5APPYTXOrV4QKqeitJi56T4Qw/exec';
+  const DONE_KEY = 'staffReview_done_v1';
 
   // Harus sama persis dengan isi tab "Daftar" di Sheet
   const EXECUTIVES = [
@@ -224,6 +228,19 @@
   const leaderSet = new Set(LEADERS);
   const picked = {};
 
+  // ───── Penanda "sudah dinilai" di browser ─────
+  function getDone() {
+    try { return JSON.parse(localStorage.getItem(DONE_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+
+  function markDone(name) {
+    const d = getDone();
+    if (!d.includes(name)) d.push(name);
+    try { localStorage.setItem(DONE_KEY, JSON.stringify(d)); }
+    catch (e) { /* penyimpanan diblokir, lewati */ }
+  }
+
   function tierOf(name) {
     if (executiveSet.has(name)) return 'executive';
     if (leaderSet.has(name)) return 'leader';
@@ -232,17 +249,23 @@
 
   function populateSelect() {
     const sel = document.getElementById('target');
+    const done = getDone();
+    sel.innerHTML = '<option value="">— Pilih nama —</option>';
+
     const addGroup = (label, names) => {
       const g = document.createElement('optgroup');
       g.label = label;
       [...names].sort().forEach(n => {
         const o = document.createElement('option');
         o.value = n;
-        o.textContent = n;
+        const sudah = done.includes(n);
+        o.textContent = sudah ? n + ' (sudah dinilai)' : n;
+        o.disabled = sudah;
         g.appendChild(o);
       });
       sel.appendChild(g);
     };
+
     addGroup('Executive', EXECUTIVES);
     addGroup('Leader', LEADERS);
     addGroup('Staff', STAFF);
@@ -270,6 +293,18 @@
     picked[idx] = val;
   }
 
+  function resetForm() {
+    Object.keys(picked).forEach(k => delete picked[k]);
+    document.getElementById('target').value = '';
+    document.getElementById('questions').classList.add('hidden');
+    document.getElementById('feedback').value = '';
+    document.getElementById('err').classList.remove('on');
+    document.getElementById('doneView').classList.add('hidden');
+    document.getElementById('formView').classList.remove('hidden');
+    populateSelect();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   document.getElementById('target').addEventListener('change', e => {
     Object.keys(picked).forEach(k => delete picked[k]);
     document.getElementById('err').classList.remove('on');
@@ -285,6 +320,11 @@
       document.getElementById('err').classList.add('on');
       return;
     }
+    if (getDone().includes(target)) {
+      document.getElementById('err').classList.add('on');
+      return;
+    }
+
     const count = QUESTIONS[type].length;
     const scores = [];
     for (let i = 0; i < count; i++) {
@@ -314,6 +354,8 @@
     } catch (e) {
       console.warn('Kirim gagal:', e);
     }
+
+    markDone(target);
 
     document.getElementById('formView').classList.add('hidden');
     document.getElementById('doneView').classList.remove('hidden');
