@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff Review - Reload Sanctuary</title>
+<style>
+  :root { --bg:#0e0e0e; --card:#1c1c1c; --border:#2a2a2a; --accent:#c8a97e; --text:#e8e2d9; --muted:#7a7570; --danger:#c97e7e; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; padding:24px 16px 60px; }
+  .wrap { max-width:640px; margin:0 auto; }
+  h1 { font-size:22px; margin-bottom:6px; }
+  .sub { color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:18px; }
+  .badge { display:inline-block; font-size:11px; color:#8fb89a; border:1px solid rgba(143,184,154,.4); padding:4px 10px; border-radius:20px; margin-bottom:18px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:22px 20px; margin-bottom:18px; }
+  label.q { display:block; font-size:14px; margin-bottom:10px; line-height:1.5; }
+  .req { color:var(--danger); }
+  select, textarea { width:100%; background:#161616; border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:11px 12px; font-family:inherit; }
+  textarea { min-height:70px; resize:vertical; }
+  select:focus, textarea:focus { outline:none; border-color:var(--accent); }
+  .q-block { margin-bottom:20px; }
+  .scale { display:flex; gap:6px; }
+  .scale button { flex:1; height:38px; border-radius:6px; border:1px solid var(--border); background:#161616; color:var(--muted); cursor:pointer; font-size:14px; }
+  .scale button.on { background:var(--accent); border-color:var(--accent); color:#1a1410; font-weight:700; }
+  .scale-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); margin-bottom:6px; }
+  .hint { font-size:11px; color:var(--muted); margin-top:6px; }
+  .err { display:none; color:var(--danger); font-size:12px; margin-top:10px; }
+  .err.on { display:block; }
+  .btn { width:100%; padding:14px; border:none; border-radius:8px; background:var(--accent); color:#1a1410; font-weight:700; font-size:14px; cursor:pointer; }
+  .hidden { display:none; }
+  .done { text-align:center; padding:50px 20px; }
+  .done h2 { font-size:22px; margin-bottom:10px; }
+  .done p { color:var(--muted); font-size:14px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="formView">
+    <h1>Staff Feedback Review</h1>
+    <p class="sub">Nilai rekan kerja kamu dengan jujur. Jawabanmu tidak menyimpan nama atau posisi kamu.</p>
+    <div class="badge">🔒 Sepenuhnya Anonim</div>
+
+    <div class="card">
+      <label class="q">Siapa yang mau kamu nilai? <span class="req">*</span></label>
+      <select id="target">
+        <option value="">— Pilih nama —</option>
+      </select>
+    </div>
+
+    <div id="questions" class="hidden">
+      <div class="card" id="qCard"></div>
+      <div class="card">
+        <div class="q-block">
+          <label class="q">Yang paling membantu dari orang ini <span style="color:var(--muted)">(opsional)</span></label>
+          <textarea id="positif" placeholder="Tulis di sini..."></textarea>
+        </div>
+        <div class="q-block">
+          <label class="q">Satu hal yang bisa diperbaiki <span style="color:var(--muted)">(opsional)</span></label>
+          <textarea id="perbaiki" placeholder="Tulis di sini..."></textarea>
+          <div class="hint">Jangan tulis nama orang lain atau kejadian yang spesifik, supaya tetap anonim.</div>
+        </div>
+      </div>
+      <div class="err" id="err">Mohon isi semua pertanyaan sebelum mengirim.</div>
+      <button class="btn" onclick="submitForm()">Kirim Review ✓</button>
+    </div>
+  </div>
+
+  <div id="doneView" class="done hidden">
+    <h2>Terima kasih sudah jujur.</h2>
+    <p>Feedback kamu sudah kami terima secara anonim.</p>
+  </div>
+</div>
+
+<script>
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNVaD_e2oO4vdWGSK6iVZ7RHjn0Jhnvex6mu2A5aouu5APPYTXOrV4QKqeitJi56T4Qw/exec';
+
+  // Harus sama persis dengan isi tab "Daftar" di Sheet
+  const LEADERS = [
+    'I Kadek Adi Wijaya',
+    'Hubert George Lisapaly',
+    'I Gede Donni Sutha Negara',
+    'Ni Kadek Dwi Ayu Nastelia',
+    'Subenshen',
+    'Ahmad Zainal',
+    'Veni Vidi Vici Samosir',
+    'Maria Vifiana Milas',
+    'Ida Bagus Made Widyadnyana Putra',
+    'Gede Nanda Auditama Putra',
+    'I Gst Made Rangga Nugrahita'
+  ];
+
+  const STAFF = [
+    'I Putu Eva Sanjaya',
+    'Ni Kadek Natalia',
+    'Anak Agung Gede Wyah Wiranata',
+    'I Gede Ripan Pramadi',
+    'Komang Difa Setiawan',
+    'I Made Indra Putra Wijaya',
+    'Desak Ayu Mirah Prasistha Prarabda',
+    'Made Ani Oktaviani',
+    'Ni Putu Linda Rusmiati Dewi',
+    'Ni Luh Putu Nila Damayanti',
+    'Ni Made Novita Antari',
+    'Cok Istri Trisna Kenita Samantha Dewi',
+    'Ni Kadek Novia Dewi',
+    'Ni Kadek Riska Lestari',
+    'Ni Komang Rita Parwati',
+    'Andi Muhammad Yudhistira Finastika Hidayat',
+    'Ari Maharani',
+    'Chintya Vieradnya Dewi',
+    'Robby Anugrah Prayogo',
+    'I Komang Pria Triatmaja',
+    'Putu Dhang Yhang Brajah Santika',
+    'Perdamiano Eligion',
+    'I Kadek Rangga Prasatya',
+    'Putu Gede Andika Saputra',
+    'Kadek Witamayasa',
+    'I Wayan Lingga Subagia',
+    'I Made Darsana',
+    'I Gede Gangga Wiveka',
+    'Ni Putu Sintha Dewi',
+    'I Putu Erik Pratama',
+    'I Kadek Lucky Aprasetya',
+    'I Putu Windra Surya Darma',
+    'I Ketut Jhoni Antara',
+    'Ni Kadek Tia Mahayani Putri',
+    'Ni Ketut Santi',
+    'Ketut Dita Ayu Trisnawati',
+    'Rd. Vicky Teguh Perwira',
+    'Kadek Intan Tiara Natarina Dewanti',
+    'Indrakila Albanjari Syah Alam',
+    'I Kadek Suardana',
+    'Afifah Fatin Nur Oktavia',
+    'Ni Komang Putri Sari Dewi',
+    'Komang Linggar Saputra',
+    'Imam Kholid Mawardi',
+    'Heili Hani Budi Rasti',
+    'Ray Fudando Manurung',
+    'Christyn Ocsaviyantha Matahelumual',
+    'Ni Putu Trisna Yanti',
+    'Andri Sugiarto',
+    'Diva Zulaika Anjela',
+    'Komang Agus Premana',
+    'Komang Wahyu Suryawan',
+    'Arima Solikhati',
+    'Vincent Abraham Juwono',
+    'Gusti Ayu Dany Damayanti',
+    'I Kadek Suwardi Mahardika',
+    'Mutiara Laila Hakim Br Harahap',
+    'Putu Krisna Dirgantara',
+    'I Made Wira Ariastana',
+    'Putri Malinda Sari',
+    'Ni Made Dian Purnama',
+    'Sri Septianingsih',
+    'Yessita Puspita Dewi',
+    'Dewa Ayu Made Sri Nadi',
+    'Kadek Wira Wati',
+    'Ni Gusti Ayu Putu Dewi Anggreni',
+    'Komang Dian Sastra Suandewi',
+    'I Gusti Ayu Agung Prasila Nareswari Pradnyaningrat Sedana',
+    'Alyka Zahrifah',
+    'Calvin Cokro Amijoyo',
+    'I Gede Juniarta',
+    'Gabriel Abetnego',
+    'I Made Issa Bagia Saputra',
+    'Brando Garcia Gondowardojo',
+    'I Made Dendi Prasetya',
+    'Putu Krisna Arya Wiguna',
+    'Ghazala Sabrien Maulidya',
+    'Ni Putu Cindy Meila Putri',
+    'Arnoldus Kadek Christian Vieira',
+    'Putu Aldi Saputra',
+    'I Putu Dody Mahardika Putra Sani',
+    'I Gusti Kade Alit Sukadiantana',
+    'Ni Putu Puspita Martha Cahyani',
+    'Tri Rahma Suar Dewi',
+    'Ni Komang Lily Purnama Sari',
+    'Ni Kadek Wulan Pangastika',
+    'I Gusti Ngurah Agung Pandhu Ryandhana',
+    'I Made Suastika',
+    'I Gede Werdhi Sedana Putra',
+    'Sunny Chaidar Yusuf',
+    'Komang Wijaya Sastra Adi Guna',
+    'Dedek Agustriansyah',
+    'I Made Aditya Wira Palguna',
+    'I Kadek Ramananda Prasatya',
+    'I Made Rai Rigantara',
+    'I Gede Made Arsadana'
+  ];
+
+  const QUESTIONS = {
+    leader: [
+      'Memberikan arahan yang jelas.',
+      'Terbuka terhadap masukan atau pertanyaan dari tim.',
+      'Memperlakukan anggota tim secara adil.',
+      'Mengakui kontribusi dan kerja keras anggota tim.',
+      'Menjelaskan ekspektasi dan standar kerja dengan jelas.',
+      'Bersikap konsisten antara perkataan dan tindakan.'
+    ],
+    staff: [
+      'Bisa diandalkan (datang tepat waktu, menyelesaikan tugas).',
+      'Bekerja sama dengan baik bersama tim.',
+      'Tetap tenang dan profesional saat ramai.',
+      'Komunikasi jelas dengan rekan kerja.',
+      'Bersedia membantu rekan yang kesulitan.',
+      'Menjalankan SOP dengan baik.'
+    ]
+  };
+
+  const leaderSet = new Set(LEADERS);
+  const picked = {};
+
+  function populateSelect() {
+    const sel = document.getElementById('target');
+    const addGroup = (label, names) => {
+      const g = document.createElement('optgroup');
+      g.label = label;
+      [...names].sort().forEach(n => {
+        const o = document.createElement('option');
+        o.value = n;
+        o.textContent = n;
+        g.appendChild(o);
+      });
+      sel.appendChild(g);
+    };
+    addGroup('Leader', LEADERS);
+    addGroup('Staff', STAFF);
+  }
+
+  function renderQuestions(name) {
+    const type = leaderSet.has(name) ? 'leader' : 'staff';
+    const qs = QUESTIONS[type];
+    const card = document.getElementById('qCard');
+    card.innerHTML = `<div class="scale-labels"><span>Sangat Tidak Setuju</span><span>Sangat Setuju</span></div>` +
+      qs.map((q, i) => `
+        <div class="q-block">
+          <label class="q">${i + 1}. ${q} <span class="req">*</span></label>
+          <div class="scale">
+            ${[1,2,3,4,5].map(n => `<button type="button" onclick="pick(this, ${i}, ${n})">${n}</button>`).join('')}
+          </div>
+        </div>`).join('');
+    card.dataset.type = type;
+    document.getElementById('questions').classList.remove('hidden');
+  }
+
+  function pick(btn, idx, val) {
+    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    picked[idx] = val;
+  }
+
+  document.getElementById('target').addEventListener('change', e => {
+    Object.keys(picked).forEach(k => delete picked[k]);
+    document.getElementById('err').classList.remove('on');
+    if (e.target.value) renderQuestions(e.target.value);
+    else document.getElementById('questions').classList.add('hidden');
+  });
+
+  async function submitForm() {
+    const target = document.getElementById('target').value;
+    const type = document.getElementById('qCard').dataset.type;
+    if (!target || !type) {
+      document.getElementById('err').classList.add('on');
+      return;
+    }
+    const count = QUESTIONS[type].length;
+    const scores = [];
+    for (let i = 0; i < count; i++) {
+      if (!picked[i]) {
+        document.getElementById('err').classList.add('on');
+        return;
+      }
+      scores.push(picked[i]);
+    }
+
+    const payload = {
+      target,
+      type,
+      scores,
+      positif: document.getElementById('positif').value.trim(),
+      perbaiki: document.getElementById('perbaiki').value.trim()
+    };
+
+    try {
+      // text/plain menghindari preflight CORS; Apps Script tetap bisa membaca body-nya
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.warn('Kirim gagal:', e);
+    }
+
+    document.getElementById('formView').classList.add('hidden');
+    document.getElementById('doneView').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  populateSelect();
+</script>
+</body>
+</html>
