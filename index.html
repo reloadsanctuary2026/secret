@@ -71,6 +71,14 @@
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNVaD_e2oO4vdWGSK6iVZ7RHjn0Jhnvex6mu2A5aouu5APPYTXOrV4QKqeitJi56T4Qw/exec';
 
   // Harus sama persis dengan isi tab "Daftar" di Sheet
+  const EXECUTIVES = [
+    'Ali Reza Soulat',
+    'Rohendi Frinsen',
+    'Windiana Indra Nugraha',
+    'Indra'
+  ];
+
+  // Management ikut di sini
   const LEADERS = [
     'I Kadek Adi Wijaya',
     'Hubert George Lisapaly',
@@ -182,12 +190,18 @@
     'I Kadek Ramananda Prasatya',
     'I Made Rai Rigantara',
     'I Gede Made Arsadana',
-    'Windiana Indra Nugraha',
-    'Roberto Frinsen',
-    'Indra'
+    'Roberto Frinsen'
   ];
 
   const QUESTIONS = {
+    executive: [
+      'Memberikan arah dan visi yang jelas untuk departemen.',
+      'Mengambil keputusan dengan adil dan transparan.',
+      'Mendukung pengembangan leader di bawahnya.',
+      'Memastikan sumber daya dan sistem tersedia untuk tim.',
+      'Menangani masalah lintas tim secara profesional.',
+      'Bersikap konsisten antara perkataan dan tindakan.'
+    ],
     leader: [
       'Memberikan arahan yang jelas.',
       'Terbuka terhadap masukan atau pertanyaan dari tim.',
@@ -206,8 +220,15 @@
     ]
   };
 
+  const executiveSet = new Set(EXECUTIVES);
   const leaderSet = new Set(LEADERS);
   const picked = {};
+
+  function tierOf(name) {
+    if (executiveSet.has(name)) return 'executive';
+    if (leaderSet.has(name)) return 'leader';
+    return 'staff';
+  }
 
   function populateSelect() {
     const sel = document.getElementById('target');
@@ -222,12 +243,13 @@
       });
       sel.appendChild(g);
     };
+    addGroup('Executive', EXECUTIVES);
     addGroup('Leader', LEADERS);
     addGroup('Staff', STAFF);
   }
 
   function renderQuestions(name) {
-    const type = leaderSet.has(name) ? 'leader' : 'staff';
+    const type = tierOf(name);
     const qs = QUESTIONS[type];
     const card = document.getElementById('qCard');
     card.innerHTML = `<div class="scale-labels"><span>Sangat Tidak Setuju</span><span>Sangat Setuju</span></div>` +
